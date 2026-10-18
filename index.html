@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>CalTrack</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--text:#111;--muted:#707070;--accent:#111;--border:#e7e7e7;--green:#27a269}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Arial,sans-serif;color:var(--text)}
+.app{max-width:520px;margin:auto;min-height:100vh;padding:env(safe-area-inset-top) 16px calc(90px + env(safe-area-inset-bottom))}
+header{padding:20px 2px 14px;display:flex;justify-content:space-between;align-items:center}h1{font-size:30px;margin:0;font-weight:800}button{font:inherit;border:0;cursor:pointer}.icon{width:42px;height:42px;border-radius:14px;background:#fff;font-size:21px}
+.card{background:var(--card);border-radius:22px;padding:18px;margin:10px 0;box-shadow:0 2px 12px #00000008}
+.date{color:var(--muted);font-size:14px;margin-top:4px}
+.cal{display:flex;align-items:center;gap:20px}.ring{width:118px;height:118px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--accent) var(--p),#e9e9e9 0);position:relative}.ring:after{content:"";position:absolute;inset:10px;background:#fff;border-radius:50%}.ringtext{position:relative;z-index:1;text-align:center}.ringtext b{display:block;font-size:25px}.ringtext span{font-size:11px;color:var(--muted)}
+.stats{flex:1}.big{font-size:30px;font-weight:800}.muted{color:var(--muted);font-size:13px}.bar{height:9px;background:#ededed;border-radius:9px;overflow:hidden;margin:8px 0 13px}.fill{height:100%;border-radius:9px}.macro{display:flex;justify-content:space-between;font-size:13px}.green{background:var(--green)}
+.section-title{font-size:18px;font-weight:800;margin:22px 2px 10px}
+.meal{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}.meal:last-child{border-bottom:0}.mealname{font-weight:700}.foodline{font-size:13px;color:var(--muted);margin-top:3px}
+.add{width:34px;height:34px;border-radius:11px;background:#111;color:#fff;font-size:20px}
+.bottom{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--border);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;justify-content:center}.addbig{background:#111;color:#fff;border-radius:17px;padding:14px 26px;font-weight:800}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;z-index:5}.sheet{background:#fff;border-radius:26px 26px 0 0;padding:20px;max-width:520px;width:100%;margin:auto;max-height:90vh;overflow:auto}.sheet h2{margin:0 0 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}input,select{width:100%;padding:13px;border:1px solid #ddd;border-radius:12px;font-size:16px;background:#fff}.full{grid-column:1/-1}.save{width:100%;padding:15px;background:#111;color:#fff;border-radius:14px;margin-top:14px;font-weight:800}.close{float:right;background:#eee;width:34px;height:34px;border-radius:50%}
+.empty{color:var(--muted);font-size:14px;padding:10px 0}
+.micro{margin:13px 0}.microhead{display:flex;justify-content:space-between;align-items:center;font-size:14px}.microname{font-weight:700}.microval{color:var(--muted);font-size:12px}.microbar{height:8px;background:#ededed;border-radius:8px;overflow:hidden;margin-top:6px}.microfill{height:100%;border-radius:8px;background:#111}
+
+.preset{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border);gap:10px}.preset:last-child{border-bottom:0}.presetinfo{min-width:0}.presetname{font-weight:800}.presetmeta{font-size:12px;color:var(--muted);margin-top:3px}.smallbtn{background:#eee;border-radius:10px;padding:9px 11px;font-weight:700}.darkbtn{background:#111;color:#fff}.danger{color:#b00020}.cameraBox{border-radius:16px;overflow:hidden;background:#111;min-height:180px;display:grid;place-items:center;color:#fff}.cameraBox video{width:100%;display:block}.scanCode{display:flex;gap:8px;margin-top:10px}.scanCode input{flex:1}.ingredient{background:#f7f7f8;border-radius:14px;padding:12px;margin:8px 0}.ingredienthead{display:flex;justify-content:space-between;gap:10px}.ingredientname{font-weight:750}.recipeTotal{background:#f3f3f4;border-radius:14px;padding:12px;margin-top:10px}.notice{background:#f5f5f7;border-radius:12px;padding:10px;font-size:12px;color:var(--muted);margin:10px 0}.
+
+.photo-upload{display:block;border:2px dashed var(--border,#d1d5db);border-radius:14px;padding:18px;text-align:center;cursor:pointer}
+.photo-upload input{display:block;width:100%;margin-top:10px}
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+<div class="app">
+<header><div><h1>CalTrack</h1><div class="date" id="today"></div></div><button class="icon" onclick="openSettings()">⚙️</button></header>
+
+<div class="card">
+  <div class="cal">
+    <div class="ring" id="ring"><div class="ringtext"><b id="remaining">0</b><span>remaining</span></div></div>
+    <div class="stats">
+      <div class="muted">Calories</div>
+      <div class="big"><span id="eaten">0</span> / <span id="target">2800</span></div>
+      <div class="bar"><div class="fill" id="calbar"></div></div>
+      <div class="macro"><span>Protein <b id="protein">0</b>g</span><span>Carbs <b id="carbs">0</b>g</span><span>Fat <b id="fat">0</b>g</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Today</div>
+<div class="card" id="meals"></div>
+
+
+<div class="section-title">Micronutrients</div>
+<div class="card" id="micros"></div>
+
+
+<div class="section-title">Add food</div>
+<div class="card">
+  <div class="grid">
+    <button class="addbig" onclick="openSearch()">🔎 Search food</button>
+    <button class="addbig" onclick="openBarcode()">▦ Scan barcode</button>
+    <button class="addbig" onclick="openScan()">📷 Scan label</button>
+  </div>
+  <div style="height:10px"></div>
+  <button class="addbig" onclick="openAdd()">✍️ Enter manually</button>
+</div>
+
+<div class="section-title">Preset meals</div>
+<div class="card">
+  <button class="addbig" onclick="openRecipe()">🍱 Create preset meal</button>
+  <div id="presetList" style="margin-top:10px"></div>
+</div>
+
+<div class="section-title">Quick add</div>
+<div class="card">
+  <button class="addbig" onclick="openAdd()">＋ Add food</button>
+</div>
+</div>
+
+<div class="bottom"><button class="addbig" onclick="openAdd()">＋ Add food</button></div>
+
+<div class="modal" id="modal">
+ <div class="sheet">
+  <button class="close" onclick="closeModal()">×</button><h2>Add food</h2>
+  <div class="grid">
+   <div class="full"><label>Food</label><input id="food" placeholder="e.g. chicken breast"></div>
+   <div id="mainQuantityBox" class="full" style="display:none"><label>Amount</label><div style="display:flex;gap:8px;align-items:center"><input id="mainQuantity" type="number" min="0.1" step="1" value="100" style="flex:1"><span>g</span></div><div class="muted" style="margin-top:4px">Nutrition is scaled from the food's values per 100g.</div></div>
+   <div><label>Calories</label><input id="cals" type="number" placeholder="450"></div>
+   <div><label>Meal</label><select id="meal"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select></div>
+   <div><label>Protein (g)</label><input id="p" type="number" placeholder="35"></div>
+   <div><label>Carbs (g)</label><input id="c" type="number" placeholder="40"></div>
+   <div><label>Fat (g)</label><input id="f" type="number" placeholder="12"></div>
+   <div><label>Sodium (mg)</label><input id="sodium" type="number" placeholder="500"></div>
+   <div><label>Potassium (mg)</label><input id="potassium" type="number" placeholder="400"></div>
+   <div><label>Calcium (mg)</label><input id="calcium" type="number" placeholder="150"></div>
+   <div><label>Iron (mg)</label><input id="iron" type="number" placeholder="2"></div>
+   <div><label>Magnesium (mg)</label><input id="magnesium" type="number" placeholder="40"></div>
+   <div><label>Zinc (mg)</label><input id="zinc" type="number" placeholder="2"></div>
+   <div><label>Vitamin A (µg)</label><input id="vitaminA" type="number" placeholder="100"></div>
+   <div><label>Vitamin D (µg)</label><input id="vitaminD" type="number" placeholder="2"></div>
+   <div><label>Vitamin C (mg)</label><input id="vitaminC" type="number" placeholder="30"></div>
+   <div><label>Vitamin B12 (µg)</label><input id="vitaminB12" type="number" placeholder="1"></div>
+   <div><label>Vitamin B6 (mg)</label><input id="vitaminB6" type="number" placeholder="0.5"></div>
+   <div><label>Folate (µg)</label><input id="folate" type="number" placeholder="50"></div>
+   <div><label>Vitamin E (mg)</label><input id="vitaminE" type="number" placeholder="2"></div>
+   <div><label>Vitamin K (µg)</label><input id="vitaminK" type="number" placeholder="20"></div>
+   <div><label>Fibre (g)</label><input id="fibre" type="number" placeholder="5"></div>
+   <div><label>Saturated fat (g)</label><input id="saturatedFat" type="number" placeholder="3"></div>
+
+  </div>
+  <button class="save" onclick="saveFood()">Add to today</button>
+ </div>
+</div>
+
+
+<div class="modal" id="searchModal">
+ <div class="sheet">
+  <button class="close" onclick="closeSearch()">×</button><h2>Search food</h2>
+  <input id="searchBox" placeholder="e.g. banana, milk, protein bar" onkeydown="if(event.key==='Enter') searchFoods()">
+  <button class="save" onclick="searchFoods()">Search</button>
+  <div id="searchResults" style="margin-top:12px"></div>
+ </div>
+</div>
+
+<div class="modal" id="barcodeModal">
+ <div class="sheet">
+  <button class="close" onclick="closeBarcode()">×</button><h2>Scan barcode</h2>
+  <p class="muted">Point your camera at the barcode. If your iPhone browser does not support live barcode scanning, enter the numbers underneath the barcode instead.</p>
+  <div id="barcodeReader" class="cameraBox"><span>Camera will appear here</span></div>
+  <div id="barcodeStatus" class="empty">Starting scanner…</div>
+  <div class="scanCode"><input id="barcodeInput" inputmode="numeric" placeholder="e.g. 9300633123456"><button class="smallbtn darkbtn" onclick="lookupBarcode()">Look up</button></div>
+  <div id="barcodeResults" style="margin-top:10px"></div>
+ </div>
+</div>
+
+<div class="modal" id="scanModal">
+ <div class="sheet">
+  <button class="close" onclick="closeScan()">×</button><h2>Scan nutrition label</h2>
+  <p class="muted">Take a clear photo of the nutrition panel. You can then review the values before adding them.</p>
+  <input id="labelPhoto" type="file" accept="image/*" capture="environment" onchange="handleLabelPhoto(event)">
+  <div id="scanPreview" style="margin-top:12px"></div>
+  <div id="scanStatus" class="empty"></div>
+  <div id="scanFields" style="display:none;margin-top:10px">
+   <div class="grid">
+    <div class="full"><label>Food</label><input id="scanFood"></div>
+    <div class="full"><label>Servings / label amounts</label><input id="scanServings" type="number" min="0.1" step="0.1" value="1"><div class="muted" style="margin-top:4px">Set to 2 if you ate two of the label's stated serving amounts.</div></div>
+    <div><label>Calories</label><input id="scanCals" type="number"></div>
+    <div><label>Protein (g)</label><input id="scanP" type="number"></div>
+    <div><label>Carbs (g)</label><input id="scanC" type="number"></div>
+    <div><label>Fat (g)</label><input id="scanF" type="number"></div>
+    <div><label>Fibre (g)</label><input id="scanFibre" type="number"></div>
+    <div><label>Sodium (mg)</label><input id="scanSodium" type="number"></div>
+    <div><label>Potassium (mg)</label><input id="scanPotassium" type="number"></div>
+    <div><label>Calcium (mg)</label><input id="scanCalcium" type="number"></div>
+    <div><label>Iron (mg)</label><input id="scanIron" type="number"></div>
+    <div><label>Magnesium (mg)</label><input id="scanMagnesium" type="number"></div>
+    <div><label>Zinc (mg)</label><input id="scanZinc" type="number"></div>
+    <div><label>Vitamin A (µg)</label><input id="scanVitaminA" type="number"></div>
+    <div><label>Vitamin D (µg)</label><input id="scanVitaminD" type="number"></div>
+    <div><label>Vitamin C (mg)</label><input id="scanVitaminC" type="number"></div>
+    <div><label>Vitamin B12 (µg)</label><input id="scanVitaminB12" type="number"></div>
+    <div><label>Vitamin B6 (mg)</label><input id="scanVitaminB6" type="number"></div>
+    <div><label>Folate (µg)</label><input id="scanFolate" type="number"></div>
+    <div><label>Vitamin E (mg)</label><input id="scanVitaminE" type="number"></div>
+    <div><label>Vitamin K (µg)</label><input id="scanVitaminK" type="number"></div>
+    <div><label>Saturated fat (g)</label><input id="scanSaturatedFat" type="number"></div>
+   </div>
+   <button class="save" onclick="addScannedFood()">Add scanned food</button>
+  </div>
+ </div>
+</div>
+
+<div class="modal" id="recipeModal">
+ <div class="sheet">
+  <button class="close" onclick="closeRecipe()">×</button><h2 id="recipeTitle">Create preset meal</h2>
+  <div class="grid">
+   <div class="full"><label>Meal name</label><input id="recipeName" placeholder="e.g. Chicken, rice & veg"></div>
+   <div><label>Number of servings</label><input id="recipeServings" type="number" min="1" step="1" value="4"></div>
+  </div>
+  <div class="notice">Add every ingredient once. CalTrack totals the whole recipe and divides it by your number of servings.</div>
+  <div id="ingredientList"></div>
+  <button class="save" onclick="openIngredient()">＋ Add ingredient</button>
+  <div id="recipeTotal" class="recipeTotal"></div>
+  <button class="save" onclick="saveRecipe()">Save preset meal</button>
+ </div>
+</div>
+
+<div class="modal" id="ingredientModal">
+ <div class="sheet">
+  <button class="close" onclick="closeIngredient()">×</button><h2>Add ingredient</h2>
+  <div class="notice">Use the nutrition values for the amount of this ingredient you actually put in the recipe. You can also search Open Food Facts below.</div>
+  <input id="ingredientSearch" placeholder="Search packaged food" onkeydown="if(event.key==='Enter') searchIngredientFood()">
+  <button class="save" onclick="searchIngredientFood()">🔎 Search</button>
+  <div id="ingredientSearchResults" style="margin-top:10px"></div>
+  <div class="grid" style="margin-top:12px">
+   <div class="full"><label>Ingredient</label><input id="ingFood" placeholder="e.g. chicken breast"></div>
+   <div id="ingredientQuantityBox" class="full" style="display:none"><label>Amount used</label><div style="display:flex;gap:8px;align-items:center"><input id="ingredientQuantity" type="number" min="0.1" step="1" value="100" style="flex:1"><span>g</span></div><div class="muted" style="margin-top:4px">Search results are shown per 100g.</div></div>
+   <div><label>Calories</label><input id="ingCals" type="number"></div><div><label>Protein (g)</label><input id="ingP" type="number"></div>
+   <div><label>Carbs (g)</label><input id="ingC" type="number"></div><div><label>Fat (g)</label><input id="ingF" type="number"></div>
+   <div><label>Sodium (mg)</label><input id="ingSodium" type="number"></div><div><label>Potassium (mg)</label><input id="ingPotassium" type="number"></div>
+   <div><label>Calcium (mg)</label><input id="ingCalcium" type="number"></div><div><label>Iron (mg)</label><input id="ingIron" type="number"></div>
+   <div><label>Magnesium (mg)</label><input id="ingMagnesium" type="number"></div><div><label>Zinc (mg)</label><input id="ingZinc" type="number"></div>
+   <div><label>Vitamin A (µg)</label><input id="ingVitaminA" type="number"></div><div><label>Vitamin D (µg)</label><input id="ingVitaminD" type="number"></div>
+   <div><label>Vitamin C (mg)</label><input id="ingVitaminC" type="number"></div><div><label>Vitamin B12 (µg)</label><input id="ingVitaminB12" type="number"></div>
+   <div><label>Vitamin B6 (mg)</label><input id="ingVitaminB6" type="number"></div><div><label>Folate (µg)</label><input id="ingFolate" type="number"></div>
+   <div><label>Vitamin E (mg)</label><input id="ingVitaminE" type="number"></div><div><label>Vitamin K (µg)</label><input id="ingVitaminK" type="number"></div>
+   <div><label>Fibre (g)</label><input id="ingFibre" type="number"></div><div><label>Saturated fat (g)</label><input id="ingSaturatedFat" type="number"></div>
+  </div>
+  <button class="save" onclick="addIngredient()">Add ingredient to recipe</button>
+ </div>
+</div>
+
+<div class="modal" id="settings">
+ <div class="sheet">
+  <button class="close" onclick="closeSettings()">×</button><h2>Daily target</h2>
+  <label>Calories</label><input id="targetInput" type="number" value="2800">
+  <label style="margin-top:12px">Protein target (g)</label><input id="proteinTarget" type="number" value="160">
+  <button class="save" onclick="saveSettings()">Save targets</button>
+ </div>
+</div>
+
+<script>
+const KEY="caltrack_v1";
+const defaultMicroTargets={sodium:2300,potassium:3400,calcium:1000,iron:8,magnesium:400,zinc:11,vitaminA:900,vitaminD:15,vitaminC:90,vitaminB12:2.4,vitaminB6:1.3,folate:400,vitaminE:15,vitaminK:120,fibre:38,saturatedFat:20};
+const nutrientKeys=['cals','p','c','f','sodium','potassium','calcium','iron','magnesium','zinc','vitaminA','vitaminD','vitaminC','vitaminB12','vitaminB6','folate','vitaminE','vitaminK','fibre','saturatedFat'];
+let state=JSON.parse(localStorage.getItem(KEY)||'null')||{target:2800,proteinTarget:160,days:{},recipes:[],microTargets:{...defaultMicroTargets}};
+state.microTargets={...defaultMicroTargets,...(state.microTargets||{})}; state.recipes=state.recipes||[];
+const key=()=>new Date().toISOString().slice(0,10);
+function day(){let k=key();if(!state.days[k])state.days[k]=[];return state.days[k]}
+function persist(){localStorage.setItem(KEY,JSON.stringify(state))}
+function openAdd(){document.getElementById('modal').style.display='flex'} function closeModal(){document.getElementById('modal').style.display='none'}
+function openSettings(){document.getElementById('settings').style.display='flex';targetInput.value=state.target;proteinTarget.value=state.proteinTarget;Object.keys(defaultMicroTargets).forEach(k=>{const el=document.getElementById('t'+k);if(el)el.value=state.microTargets[k]})}
+function closeSettings(){document.getElementById('settings').style.display='none'}
+function saveSettings(){state.target=+targetInput.value||2800;state.proteinTarget=+proteinTarget.value||160;Object.keys(defaultMicroTargets).forEach(k=>{const el=document.getElementById('t'+k);if(el)state.microTargets[k]=+el.value||defaultMicroTargets[k]});persist();closeSettings();render()}
+function fieldId(prefix,suffix){return prefix?suffix==='Food'?'ingFood':'ing'+suffix:suffix.charAt(0).toLowerCase()+suffix.slice(1)}
+function blankValues(prefix){const g=s=>document.getElementById(fieldId(prefix,s));return {food:g('Food').value.trim()||'Food',cals:+g('Cals').value||0,p:+g('P').value||0,c:+g('C').value||0,f:+g('F').value||0,sodium:+g('Sodium').value||0,potassium:+g('Potassium').value||0,calcium:+g('Calcium').value||0,iron:+g('Iron').value||0,magnesium:+g('Magnesium').value||0,zinc:+g('Zinc').value||0,vitaminA:+g('VitaminA').value||0,vitaminD:+g('VitaminD').value||0,vitaminC:+g('VitaminC').value||0,vitaminB12:+g('VitaminB12').value||0,vitaminB6:+g('VitaminB6').value||0,folate:+g('Folate').value||0,vitaminE:+g('VitaminE').value||0,vitaminK:+g('VitaminK').value||0,fibre:+g('Fibre').value||0,saturatedFat:+g('SaturatedFat').value||0}}
+let currentMainBase=null;
+let currentIngredientBase=null;
+function scaleValues(base,mult){const x={...base};nutrientKeys.forEach(k=>x[k]=(+base[k]||0)*mult);return x}
+function setMainFromBase(base,showQuantity=true){currentMainBase={...base};const box=document.getElementById('mainQuantityBox');if(box)box.style.display=showQuantity?'block':'none';if(showQuantity)document.getElementById('mainQuantity').value=100;applyMainQuantity()}
+function applyMainQuantity(){if(!currentMainBase)return;const qty=Math.max(+document.getElementById('mainQuantity').value||100,0.1);const x=scaleValues(currentMainBase,qty/100);Object.entries(x).forEach(([k,v])=>{const el=document.getElementById(k);if(el&&k!=='food')el.value=Number(v||0).toFixed(2).replace(/\.00$/,'')});const food=document.getElementById('food');if(food)food.value=currentMainBase.food||'Food'}
+function saveFood(){const x={...blankValues(''),meal:meal.value};day().push(x);persist();clearMain();currentMainBase=null;const qb=document.getElementById('mainQuantityBox');if(qb)qb.style.display='none';closeModal();render()}
+function clearFields(prefix){['Food','Cals','P','C','F','Sodium','Potassium','Calcium','Iron','Magnesium','Zinc','VitaminA','VitaminD','VitaminC','VitaminB12','VitaminB6','Folate','VitaminE','VitaminK','Fibre','SaturatedFat'].forEach(id=>{const el=document.getElementById(prefix+id.toLowerCase()==='x'?prefix+id:prefix+id);});}
+function clearMain(){currentMainBase=null;const qb=document.getElementById('mainQuantityBox');if(qb)qb.style.display='none';['food','cals','p','c','f','sodium','potassium','calcium','iron','magnesium','zinc','vitaminA','vitaminD','vitaminC','vitaminB12','vitaminB6','folate','vitaminE','vitaminK','fibre','saturatedFat'].forEach(id=>document.getElementById(id).value='')}
+function render(){const d=day(),sum=k=>d.reduce((a,x)=>a+(+x[k]||0),0),e=sum('cals'),p=sum('p'),c=sum('c'),f=sum('f'),rem=Math.max(state.target-e,0),pct=Math.min(e/state.target,1);today.textContent=new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});eaten.textContent=Math.round(e);target.textContent=Math.round(state.target);remaining.textContent=Math.round(rem);protein.textContent=Math.round(p);carbs.textContent=Math.round(c);fat.textContent=Math.round(f);calbar.style.width=pct*100+'%';ring.style.setProperty('--p',pct*360+'deg');
+ const microMeta=[['sodium','Sodium','mg'],['potassium','Potassium','mg'],['calcium','Calcium','mg'],['iron','Iron','mg'],['magnesium','Magnesium','mg'],['zinc','Zinc','mg'],['vitaminA','Vitamin A','µg'],['vitaminD','Vitamin D','µg'],['vitaminC','Vitamin C','mg'],['vitaminB12','Vitamin B12','µg'],['vitaminB6','Vitamin B6','mg'],['folate','Folate','µg'],['vitaminE','Vitamin E','mg'],['vitaminK','Vitamin K','µg'],['fibre','Fibre','g'],['saturatedFat','Saturated fat','g']];
+ micros.innerHTML=microMeta.map(([k,n,u])=>{const v=sum(k),t=state.microTargets[k]||1,q=Math.min(v/t,1)*100;return `<div class="micro"><div class="microhead"><span class="microname">${n}</span><span class="microval">${Number(v.toFixed(1))} / ${t} ${u}</span></div><div class="microbar"><div class="microfill" style="width:${q}%"></div></div></div>`}).join('');
+ const meals=['Breakfast','Lunch','Dinner','Snack'];document.getElementById('meals').innerHTML=meals.map(m=>{const xs=d.filter(x=>x.meal===m),total=xs.reduce((a,x)=>a+x.cals,0);return `<div class="meal"><div><div class="mealname">${m}</div><div class="foodline">${xs.length?xs.map(x=>escapeHtml(x.food)).join(', '):'Nothing logged'}</div></div><div><b>${Math.round(total)} kcal</b> <button class="add" onclick="openAddMeal('${m}')">+</button></div></div>`}).join('');renderPresets()}
+function openAddMeal(m){openAdd();meal.value=m}
+function openSearch(){searchModal.style.display='flex';searchBox.focus()} function closeSearch(){searchModal.style.display='none'}
+function openScan(){scanModal.style.display='flex'} function closeScan(){scanModal.style.display='none'}
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function productToValues(p){const n=p.nutriments||{};return {food:p.product_name||'Food',cals:n['energy-kcal_100g']||0,p:n.proteins_100g||0,c:n.carbohydrates_100g||0,f:n.fat_100g||0,sodium:(n.sodium_100g||0)*1000,potassium:(n.potassium_100g||0)*1000,calcium:(n.calcium_100g||0)*1000,iron:(n.iron_100g||0)*1000,magnesium:(n.magnesium_100g||0)*1000,zinc:(n.zinc_100g||0)*1000,vitaminA:(n['vitamin-a_100g']||0)*1000000,vitaminD:(n['vitamin-d_100g']||0)*1000000,vitaminC:(n['vitamin-c_100g']||0)*1000,vitaminB12:(n['vitamin-b12_100g']||0)*1000000,vitaminB6:(n['vitamin-b6_100g']||0)*1000,folate:(n.folate_100g||0)*1000000,vitaminE:(n['vitamin-e_100g']||0)*1000,vitaminK:(n['vitamin-k_100g']||0)*1000000,fibre:n.fiber_100g||0,saturatedFat:n['saturated-fat_100g']||0}}
+function fillMain(v,fromFood=false){Object.entries(v).forEach(([k,x])=>{const el=document.getElementById(k);if(el)el.value=k==='food'?String(x||'Food'):Number(x||0).toFixed(2).replace(/\.00$/,'')});if(fromFood)setMainFromBase(v,true)}
+async function fetchProducts(q){
+  // Primary: legacy Open Food Facts full-text endpoint (still the documented
+  // full-text search endpoint). We request only the fields CalTrack needs.
+  const legacy='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+
+    encodeURIComponent(q)+
+    '&search_simple=1&action=process&json=1&page_size=12'+
+    '&fields=code,product_name,brands,nutriments';
+
+  try{
+    const r=await fetch(legacy,{headers:{'Accept':'application/json'}});
+    if(r.ok){
+      const data=await r.json();
+      const products=(data.products||[]).filter(x=>x.product_name);
+      if(products.length)return products;
+    }
+  }catch(e){
+    console.warn('Legacy OFF search failed',e);
+  }
+
+  // Fallback: current Search-a-licious full-text search service.
+  // Its response uses hits; normalize the result to Open Food Facts product objects.
+  try{
+    const url='https://search.openfoodfacts.org/search?q='+encodeURIComponent(q)+
+      '&page_size=12&fields=code,product_name,brands,nutriments';
+    const r=await fetch(url,{headers:{'Accept':'application/json'}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    const hits=data.hits||data.products||[];
+    return hits.map(h=>h.product||h).filter(x=>x.product_name);
+  }catch(e){
+    console.warn('Search-a-licious search failed',e);
+    throw new Error('Food search unavailable');
+  }
+}
+
+async function searchFoods(){const q=searchBox.value.trim(),box=searchResults;if(!q)return;box.innerHTML='<div class="empty">Searching…</div>';try{const products=await fetchProducts(q);if(!products.length){box.innerHTML='<div class="empty">No products found.</div>';return}window._searchProducts=products;box.innerHTML=products.map((p,i)=>`<div class="meal" style="cursor:pointer" onclick="selectProduct(${i})"><div><div class="mealname">${escapeHtml(p.product_name)}</div><div class="foodline">${escapeHtml(p.brands||'')} · ${p.nutriments?.['energy-kcal_100g']??'?'} kcal/100g</div></div><span>›</span></div>`).join('')}catch(e){box.innerHTML='<div class="empty">Search failed. Check your internet connection.</div>'}}
+function selectProduct(i){const v=productToValues(window._searchProducts[i]);closeSearch();openAdd();fillMain(v,true)}
+function handleLabelPhoto(ev){const file=ev.target.files?.[0];if(!file)return;const url=URL.createObjectURL(file);scanPreview.innerHTML=`<img src="${url}" style="max-width:100%;max-height:260px;border-radius:14px">`;scanStatus.innerHTML='Photo loaded. Enter/review the values below before adding them.';scanFields.style.display='block'}
+function addScannedFood(){const get=id=>+document.getElementById(id).value||0;const mult=Math.max(+document.getElementById('scanServings')?.value||1,0.1);const x={food:scanFood.value.trim()||'Scanned food',cals:get('scanCals')*mult,meal:'Snack',p:get('scanP')*mult,c:get('scanC')*mult,f:get('scanF')*mult,sodium:get('scanSodium')*mult,potassium:get('scanPotassium')*mult,calcium:get('scanCalcium')*mult,iron:get('scanIron')*mult,magnesium:get('scanMagnesium')*mult,zinc:get('scanZinc')*mult,vitaminA:get('scanVitaminA')*mult,vitaminD:get('scanVitaminD')*mult,vitaminC:get('scanVitaminC')*mult,vitaminB12:get('scanVitaminB12')*mult,vitaminB6:get('scanVitaminB6')*mult,folate:get('scanFolate')*mult,vitaminE:get('scanVitaminE')*mult,vitaminK:get('scanVitaminK')*mult,fibre:get('scanFibre')*mult,saturatedFat:get('scanSaturatedFat')*mult};day().push(x);persist();closeScan();render()}
+
+// Barcode scanning
+let barcodeScanner=null;
+function openBarcode(){barcodeModal.style.display='flex';startBarcodeScanner()}
+async function startBarcodeScanner(){barcodeStatus.textContent='Starting scanner…';barcodeReader.innerHTML='<span>Starting camera…</span>';try{if(!window.Html5Qrcode){await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js')}barcodeReader.innerHTML='';barcodeScanner=new Html5Qrcode('barcodeReader');await barcodeScanner.start({facingMode:'environment'},{fps:10,qrbox:{width:280,height:140},formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E]},code=>{barcodeInput.value=code;lookupBarcode();stopBarcodeScanner()},()=>{});barcodeStatus.textContent='Point the camera at the product barcode.'}catch(e){barcodeStatus.textContent='Live scanning could not start. Enter the barcode number below instead.';barcodeReader.innerHTML='<span>Camera unavailable</span>'}}
+function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)})}
+async function stopBarcodeScanner(){try{if(barcodeScanner){await barcodeScanner.stop();barcodeScanner.clear();barcodeScanner=null}}catch(e){}}
+function closeBarcode(){stopBarcodeScanner();barcodeModal.style.display='none'}
+async function lookupBarcode(){const code=barcodeInput.value.trim().replace(/\D/g,'');if(!code)return;barcodeResults.innerHTML='<div class="empty">Looking up barcode…</div>';try{const r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json');const data=await r.json();if(data.status!==1||!data.product){barcodeResults.innerHTML='<div class="empty">Barcode not found in Open Food Facts. You can search the product or enter it manually.</div>';return}const v=productToValues(data.product);barcodeResults.innerHTML=`<div class="preset"><div class="presetinfo"><div class="presetname">${escapeHtml(v.food)}</div><div class="presetmeta">${Math.round(v.cals)} kcal · ${v.p.toFixed(1)}g protein per 100g</div></div><button class="smallbtn darkbtn" onclick="useBarcodeProduct()">Add</button></div>`;window._barcodeProduct=v}catch(e){barcodeResults.innerHTML='<div class="empty">Barcode lookup failed. Check your internet connection.</div>'}}
+function useBarcodeProduct(){const v=window._barcodeProduct;closeBarcode();openAdd();fillMain(v,true)}
+
+// Preset meals / recipes
+let recipeDraft=[],editingRecipeId=null;
+function openRecipe(id=null){editingRecipeId=id;recipeDraft=[];recipeName.value='';recipeServings.value=4;if(id!==null){const r=state.recipes.find(x=>x.id===id);if(r){recipeName.value=r.name;recipeServings.value=r.servings;recipeDraft=JSON.parse(JSON.stringify(r.ingredients||[]))}}recipeTitle.textContent=id===null?'Create preset meal':'Edit preset meal';recipeModal.style.display='flex';renderRecipeDraft()}
+function closeRecipe(){recipeModal.style.display='none'}
+function openIngredient(){ingredientModal.style.display='flex';ingredientSearchResults.innerHTML='';currentIngredientBase=null;document.getElementById('ingredientQuantityBox').style.display='none';document.getElementById('ingredientQuantity').value=100;['ingFood','ingCals','ingP','ingC','ingF','ingSodium','ingPotassium','ingCalcium','ingIron','ingMagnesium','ingZinc','ingVitaminA','ingVitaminD','ingVitaminC','ingVitaminB12','ingVitaminB6','ingFolate','ingVitaminE','ingVitaminK','ingFibre','ingSaturatedFat'].forEach(id=>document.getElementById(id).value='')}
+function closeIngredient(){ingredientModal.style.display='none'}
+function addIngredient(){const x=currentIngredientBase?scaleValues(currentIngredientBase,Math.max(+document.getElementById('ingredientQuantity').value||100,0.1)/100):blankValues('ing');recipeDraft.push(x);currentIngredientBase=null;document.getElementById('ingredientQuantityBox').style.display='none';closeIngredient();renderRecipeDraft()}
+function removeIngredient(i){recipeDraft.splice(i,1);renderRecipeDraft()}
+function totalsFor(items){const t={};nutrientKeys.forEach(k=>t[k]=items.reduce((a,x)=>a+(+x[k]||0),0));return t}
+function renderRecipeDraft(){ingredientList.innerHTML=recipeDraft.length?recipeDraft.map((x,i)=>`<div class="ingredient"><div class="ingredienthead"><div><div class="ingredientname">${escapeHtml(x.food)}</div><div class="presetmeta">${Math.round(x.cals)} kcal · ${x.p.toFixed(1)}g P · ${x.c.toFixed(1)}g C · ${x.f.toFixed(1)}g F</div></div><button class="smallbtn danger" onclick="removeIngredient(${i})">Remove</button></div></div>`).join(''):'<div class="empty">No ingredients yet.</div>';const t=totalsFor(recipeDraft),s=Math.max(+recipeServings.value||1,1);recipeTotal.innerHTML=`<b>Whole recipe:</b> ${Math.round(t.cals)} kcal · ${t.p.toFixed(1)}g protein · ${t.c.toFixed(1)}g carbs · ${t.f.toFixed(1)}g fat<br><span class="muted">Per serving (${s}): ${Math.round(t.cals/s)} kcal · ${(t.p/s).toFixed(1)}g protein · ${(t.c/s).toFixed(1)}g carbs · ${(t.f/s).toFixed(1)}g fat</span>`}
+recipeServings.addEventListener('input',()=>{if(recipeModal.style.display==='flex')renderRecipeDraft()});
+document.getElementById('mainQuantity').addEventListener('input',applyMainQuantity);
+document.getElementById('ingredientQuantity').addEventListener('input',applyIngredientQuantity);
+function saveRecipe(){const name=recipeName.value.trim()||'Preset meal',servings=Math.max(1,Math.round(+recipeServings.value||1));if(!recipeDraft.length){alert('Add at least one ingredient first.');return}const r={id:editingRecipeId||Date.now(),name,servings,ingredients:recipeDraft};if(editingRecipeId===null)state.recipes.push(r);else{const i=state.recipes.findIndex(x=>x.id===editingRecipeId);if(i>=0)state.recipes[i]=r}persist();closeRecipe();render()}
+function renderPresets(){const box=document.getElementById('presetList');if(!state.recipes.length){box.innerHTML='<div class="empty">No preset meals yet. Create one from your meal prep.</div>';return}box.innerHTML=state.recipes.map((r,i)=>{const t=totalsFor(r.ingredients||[]),s=Math.max(r.servings,1);return `<div class="preset"><div class="presetinfo"><div class="presetname">${escapeHtml(r.name)}</div><div class="presetmeta">${Math.round(t.cals/s)} kcal · ${(t.p/s).toFixed(1)}g protein per serving · ${s} servings</div></div><div style="display:flex;gap:6px"><button class="smallbtn" onclick="addPreset(${i})">＋</button><button class="smallbtn" onclick="openRecipe(${r.id})">✎</button><button class="smallbtn" onclick="deleteRecipe(${r.id})">×</button></div></div>`}).join('')}
+function addPreset(i){const r=state.recipes[i];if(!r)return;const t=totalsFor(r.ingredients||[]),s=Math.max(r.servings,1);const x={food:r.name+' (1 serving)',meal:'Snack'};nutrientKeys.forEach(k=>x[k]=(t[k]||0)/s);day().push(x);persist();render()}
+function deleteRecipe(id){if(confirm('Delete this preset meal?')){state.recipes=state.recipes.filter(r=>r.id!==id);persist();render()}}
+async function searchIngredientFood(){const q=ingredientSearch.value.trim(),box=ingredientSearchResults;if(!q)return;box.innerHTML='<div class="empty">Searching…</div>';try{const products=await fetchProducts(q);if(!products.length){box.innerHTML='<div class="empty">No products found.</div>';return}window._ingredientProducts=products;box.innerHTML=products.slice(0,8).map((p,i)=>`<div class="meal" style="cursor:pointer" onclick="selectIngredientProduct(${i})"><div><div class="mealname">${escapeHtml(p.product_name)}</div><div class="foodline">${escapeHtml(p.brands||'')} · ${p.nutriments?.['energy-kcal_100g']??'?'} kcal/100g</div></div><span>›</span></div>`).join('')}catch(e){box.innerHTML='<div class="empty">Search failed.</div>'}}
+function selectIngredientProduct(i){const v=productToValues(window._ingredientProducts[i]);fillIngredient(v,true)}
+function fillIngredient(v,fromFood=false){Object.entries(v).forEach(([k,x])=>{const id='ing'+k.charAt(0).toUpperCase()+k.slice(1);const el=document.getElementById(id);if(el)el.value=k==='food'?String(x||'Food'):Number(x||0).toFixed(2).replace(/\.00$/,'')});if(fromFood){currentIngredientBase={...v};document.getElementById('ingredientQuantityBox').style.display='block';document.getElementById('ingredientQuantity').value=100;applyIngredientQuantity()}}
+function applyIngredientQuantity(){if(!currentIngredientBase)return;const qty=Math.max(+document.getElementById('ingredientQuantity').value||100,0.1);const x=scaleValues(currentIngredientBase,qty/100);Object.entries(x).forEach(([k,v])=>{if(k==='food')return;const id='ing'+k.charAt(0).toUpperCase()+k.slice(1),el=document.getElementById(id);if(el)el.value=Number(v||0).toFixed(2).replace(/\.00$/,'')});document.getElementById('ingFood').value=currentIngredientBase.food||'Food'}
+
+render();
+
+function openLabelScanner(){
+  document.getElementById('labelModal').classList.add('open');
+  document.getElementById('labelOCRStatus').textContent='';
+  document.getElementById('labelOCRFields').style.display='none';
+  document.getElementById('labelPreviewWrap').style.display='none';
+  document.getElementById('labelPhotoInput').value='';
+}
+function closeLabelScanner(){ document.getElementById('labelModal').classList.remove('open'); }
+
+async function processNutritionLabelPhoto(event){
+  const file=event.target.files?.[0];
+  if(!file)return;
+  const preview=document.getElementById('labelPreview');
+  preview.src=URL.createObjectURL(file);
+  document.getElementById('labelPreviewWrap').style.display='block';
+  const status=document.getElementById('labelOCRStatus');
+  status.textContent='Reading nutrition label…';
+  try{
+    if(typeof Tesseract==='undefined') throw new Error('OCR library unavailable');
+    const result=await Tesseract.recognize(file,'eng',{
+      logger:m=>{
+        if(m.status==='recognizing text' && m.progress){
+          status.textContent='Reading nutrition label… '+Math.round(m.progress*100)+'%';
+        }
+      }
+    });
+    const text=result.data.text||'';
+    const parsed=parseNutritionLabelText(text);
+    fillLabelFields(parsed);
+    document.getElementById('labelOCRFields').style.display='block';
+    status.textContent='Done — check the values carefully before adding the ingredient.';
+  }catch(e){
+    document.getElementById('labelOCRFields').style.display='block';
+    status.textContent='I could not reliably read the label. You can still enter the values manually below.';
+  }
+}
+
+function firstNumber(text){
+  const m=String(text||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
+  return m?Number(m[0]):0;
+}
+function parseNutritionLabelText(text){
+  const t=String(text||'').replace(/\r/g,' ');
+  const lines=t.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const out={};
+  function find(patterns){
+    for(const line of lines){
+      for(const re of patterns){
+        const m=line.match(re);
+        if(m)return firstNumber(m[1]||m[0]);
+      }
+    }
+    return 0;
+  }
+  out.cals=find([/calories?\s*[:\-]?\s*([0-9.,]+)/i,/energy\s*[:\-]?\s*([0-9.,]+)\s*k?j/i]);
+  if(!out.cals){
+    const kj=find([/energy\s*[:\-]?\s*([0-9.,]+)\s*k?j/i]);
+    if(kj) out.cals=kj/4.184;
+  }
+  out.p=find([/protein\s*[:\-]?\s*([0-9.,]+)\s*g/i]);
+  out.c=find([/carbohydrate[s]?\s*[:\-]?\s*([0-9.,]+)\s*g/i,/carbs?\s*[:\-]?\s*([0-9.,]+)\s*g/i]);
+  out.f=find([/total\s+fat\s*[:\-]?\s*([0-9.,]+)\s*g/i,/fat\s*[:\-]?\s*([0-9.,]+)\s*g/i]);
+  out.sodium=find([/sodium\s*[:\-]?\s*([0-9.,]+)\s*mg/i]);
+  out.potassium=find([/potassium\s*[:\-]?\s*([0-9.,]+)\s*mg/i]);
+  out.calcium=find([/calcium\s*[:\-]?\s*([0-9.,]+)\s*(?:mg|µg)/i]);
+  out.iron=find([/iron\s*[:\-]?\s*([0-9.,]+)\s*mg/i]);
+  out.magnesium=find([/magnesium\s*[:\-]?\s*([0-9.,]+)\s*mg/i]);
+  out.zinc=find([/zinc\s*[:\-]?\s*([0-9.,]+)\s*mg/i]);
+  out.vitaminA=find([/vitamin\s*a\s*[:\-]?\s*([0-9.,]+)\s*(?:µg|ug|mcg|mg)?/i]);
+  out.vitaminD=find([/vitamin\s*d\s*[:\-]?\s*([0-9.,]+)\s*(?:µg|ug|mcg|mg)?/i]);
+  out.vitaminC=find([/vitamin\s*c\s*[:\-]?\s*([0-9.,]+)\s*mg/i]);
+  out.vitaminB12=find([/vitamin\s*b12\s*[:\-]?\s*([0-9.,]+)\s*(?:µg|ug|mcg)/i]);
+  out.vitaminB6=find([/vitamin\s*b6\s*[:\-]?\s*([0-9.,]+)\s*mg/i]);
+  out.folate=find([/folate\s*[:\-]?\s*([0-9.,]+)\s*(?:µg|ug|mcg)/i]);
+  out.vitaminE=find([/vitamin\s*e\s*[:\-]?\s*([0-9.,]+)\s*mg/i]);
+  out.vitaminK=find([/vitamin\s*k\s*[:\-]?\s*([0-9.,]+)\s*(?:µg|ug|mcg)/i]);
+  out.fibre=find([/f[iy]b(?:er|re)\s*[:\-]?\s*([0-9.,]+)\s*g/i]);
+  out.saturatedFat=find([/saturated\s+fat\s*[:\-]?\s*([0-9.,]+)\s*g/i]);
+  return out;
+}
+function fillLabelFields(o){
+  const map={cals:'labelCals',p:'labelP',c:'labelC',f:'labelF',sodium:'labelSodium',
+    potassium:'labelPotassium',calcium:'labelCalcium',iron:'labelIron',magnesium:'labelMagnesium',
+    zinc:'labelZinc',vitaminA:'labelVitaminA',vitaminD:'labelVitaminD',vitaminC:'labelVitaminC',
+    vitaminB12:'labelVitaminB12',vitaminB6:'labelVitaminB6',folate:'labelFolate',vitaminE:'labelVitaminE',
+    vitaminK:'labelVitaminK',fibre:'labelFibre',saturatedFat:'labelSaturatedFat'};
+  Object.entries(map).forEach(([k,id])=>document.getElementById(id).value=o[k]||'');
+}
+function addLabelIngredient(){
+  const name=document.getElementById('labelFoodName').value.trim()||'Photographed food';
+  const item={name,qty:'nutrition label amount'};
+  const map={cals:'labelCals',p:'labelP',c:'labelC',f:'labelF',sodium:'labelSodium',
+    potassium:'labelPotassium',calcium:'labelCalcium',iron:'labelIron',magnesium:'labelMagnesium',
+    zinc:'labelZinc',vitaminA:'labelVitaminA',vitaminD:'labelVitaminD',vitaminC:'labelVitaminC',
+    vitaminB12:'labelVitaminB12',vitaminB6:'labelVitaminB6',folate:'labelFolate',vitaminE:'labelVitaminE',
+    vitaminK:'labelVitaminK',fibre:'labelFibre',saturatedFat:'labelSaturatedFat'};
+  Object.entries(map).forEach(([k,id])=>item[k]=recipeNum(document.getElementById(id).value));
+  draftIngredients.push(item);
+  closeLabelScanner();
+  renderDraftIngredients();
+}
+
+</script>
+
+<div class="modal" id="labelModal">
+  <div class="modal-box">
+    <div class="section-head">
+      <h2>Photograph nutrition label</h2>
+      <button class="icon-btn" onclick="closeLabelScanner()">✕</button>
+    </div>
+    <p class="muted">Take a clear photo of the nutrition panel. CalTrack will read the text and fill in the nutrition fields for you to review.</p>
+
+    <label class="photo-upload">
+      <span>📷 Take photo / choose photo</span>
+      <input id="labelPhotoInput" type="file" accept="image/*" capture="environment" onchange="processNutritionLabelPhoto(event)">
+    </label>
+
+    <div id="labelPreviewWrap" style="display:none;margin-top:12px">
+      <img id="labelPreview" alt="Nutrition label preview" style="width:100%;max-height:320px;object-fit:contain;border-radius:14px;background:#111">
+    </div>
+
+    <div id="labelOCRStatus" class="muted" style="margin-top:10px"></div>
+
+    <div id="labelOCRFields" style="display:none;margin-top:12px">
+      <label>Food name
+        <input id="labelFoodName" placeholder="e.g. Greek yoghurt">
+      </label>
+      <p class="muted">Review the detected values before adding them. The photo is not uploaded to CalTrack's servers.</p>
+      <div class="nutri-grid">
+        <label>Calories<input id="labelCals" type="number" step="0.1"></label>
+        <label>Protein (g)<input id="labelP" type="number" step="0.1"></label>
+        <label>Carbs (g)<input id="labelC" type="number" step="0.1"></label>
+        <label>Fat (g)<input id="labelF" type="number" step="0.1"></label>
+        <label>Sodium (mg)<input id="labelSodium" type="number" step="0.1"></label>
+        <label>Potassium (mg)<input id="labelPotassium" type="number" step="0.1"></label>
+        <label>Calcium (mg)<input id="labelCalcium" type="number" step="0.1"></label>
+        <label>Iron (mg)<input id="labelIron" type="number" step="0.1"></label>
+        <label>Magnesium (mg)<input id="labelMagnesium" type="number" step="0.1"></label>
+        <label>Zinc (mg)<input id="labelZinc" type="number" step="0.1"></label>
+        <label>Vitamin A (µg)<input id="labelVitaminA" type="number" step="0.1"></label>
+        <label>Vitamin D (µg)<input id="labelVitaminD" type="number" step="0.1"></label>
+        <label>Vitamin C (mg)<input id="labelVitaminC" type="number" step="0.1"></label>
+        <label>Vitamin B12 (µg)<input id="labelVitaminB12" type="number" step="0.1"></label>
+        <label>Vitamin B6 (mg)<input id="labelVitaminB6" type="number" step="0.1"></label>
+        <label>Folate (µg)<input id="labelFolate" type="number" step="0.1"></label>
+        <label>Vitamin E (mg)<input id="labelVitaminE" type="number" step="0.1"></label>
+        <label>Vitamin K (µg)<input id="labelVitaminK" type="number" step="0.1"></label>
+        <label>Fibre (g)<input id="labelFibre" type="number" step="0.1"></label>
+        <label>Saturated fat (g)<input id="labelSaturatedFat" type="number" step="0.1"></label>
+      </div>
+      <button class="primary full" onclick="addLabelIngredient()">Add to preset meal</button>
+    </div>
+  </div>
+</div>
+
+</body></html>
